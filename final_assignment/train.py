@@ -134,7 +134,7 @@ def main(args):
     np.random.seed(args.seed)
     torch.backends.cudnn.deterministic = True
 
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    device = torch.device("cuda" if torch.cuda.is_available() else "mps" if torch.mps.is_available() else "cpu")
 
     # ---- Data loaders (unchanged) -----------------------------------------
     transform = Compose([
@@ -206,6 +206,11 @@ def main(args):
         n_classes=19,
         arch=best_arch,
     ).to(device)
+
+    if torch.cuda.device_count() > 1:
+        print(f"Using {torch.cuda.device_count()} GPUs via DataParallel")
+        model = nn.DataParallel(model)
+    model = model.to(device)
 
     n_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
     print(f"Trainable parameters: {n_params:,}")
