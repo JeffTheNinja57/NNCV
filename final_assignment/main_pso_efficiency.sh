@@ -10,13 +10,13 @@ python3 train.py \
     --batch-size 64 \
     --epochs 100 \
     --lr 0.001 \
-    --num-workers 8 \
+    --num-workers 1 \
     --seed 42 \
     --experiment-id "pso-unet-efficiency" \
     --mode efficiency \
-    --pso-iterations 10 \
-    --pso-population 10 \
-    --pso-epochs 20 \
+    --pso-iterations 2 \
+    --pso-population 2 \
+    --pso-epochs 1 \
     --cg 0.5 \
     --lambda-efficiency 0.3 \
     --max-params 5000000 \
