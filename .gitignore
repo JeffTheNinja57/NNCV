@@ -177,9 +177,8 @@ cython_debug/
 
 .idea
 
-.env
+*.env
 
-/data
-
+weekly_notebooks/data
 
 
