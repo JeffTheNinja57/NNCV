@@ -16,7 +16,7 @@ python3 train.py \
     --mode efficiency \
     --pso-iterations 10 \
     --pso-population 10 \
-    --pso-epochs 10 \
+    --pso-epochs 20 \
     --cg 0.5 \
     --lambda-efficiency 0.3 \
     --max-params 5000000 \
