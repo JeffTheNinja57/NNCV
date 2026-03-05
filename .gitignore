@@ -181,4 +181,9 @@ cython_debug/
 
 weekly_notebooks/data
 
+# Weights & Biases run logs
+wandb/
 
+data/
+*.sif
+*.out

@@ -32,6 +32,7 @@ from torchvision.transforms.v2 import (
     Resize,
     ToImage,
     ToDtype,
+    InterpolationMode,
 )
 
 from model import Model
@@ -136,21 +137,28 @@ def main(args):
 
     device = torch.device("cuda" if torch.cuda.is_available() else "mps" if torch.mps.is_available() else "cpu")
 
-    # ---- Data loaders (unchanged) -----------------------------------------
-    transform = Compose([
+    # ---- Data loaders -------------------------------------------------
+    img_transform = Compose([
         ToImage(),
         Resize((256, 256)),
         ToDtype(torch.float32, scale=True),
-        Normalize((0.5,), (0.5,)),
+        Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
+    ])
+    target_transform = Compose([
+        ToImage(),
+        Resize((256, 256), interpolation=InterpolationMode.NEAREST),
+        ToDtype(torch.int64),
     ])
 
     train_dataset = Cityscapes(
         args.data_dir, split="train", mode="fine",
-        target_type="semantic", transforms=transform,
+        target_type="semantic",
+        transform=img_transform, target_transform=target_transform,
     )
     valid_dataset = Cityscapes(
         args.data_dir, split="val", mode="fine",
-        target_type="semantic", transforms=transform,
+        target_type="semantic",
+        transform=img_transform, target_transform=target_transform,
     )
 
     train_dataloader = DataLoader(
