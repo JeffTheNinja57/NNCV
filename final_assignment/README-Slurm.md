@@ -26,10 +26,11 @@ Regardless of the option:
 - Execution happens **inside a container**, not on the host system
 
 ## Step 1: Clone Your Repository on the Cluster
+First create a Personal Access Token (PAT) on GitHub (`Settings` -> `Developer Settings` -> `Personal Access Token` -> `Token (classic)`).  
 Log in to the HPC cluster and clone **your fork** of the repository:
 
 ```bash
-git clone https://github.com/<your-username>/NNCV.git
+git clone https://<PAT>@github.com/<your-username>/NNCV.git
 cd NNCV
 ```
 
@@ -98,7 +99,7 @@ sbatch jobscript_slurm.sh
 
 SLURM will queue and execute your job when resources are available.
 
-## Explaination of SLURM Parameters
+## Explanation of SLURM Parameters
 The `jobscript_slurm.sh` file includes several SLURM-specific directives (denoted by #SBATCH). Here’s a brief explanation of these commands:
 
 - `#SBATCH --nodes=1`  
