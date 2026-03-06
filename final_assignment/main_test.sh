@@ -7,6 +7,11 @@
 # before submitting the real efficiency / performance jobs.
 # ──────────────────────────────────────────────────────────────────────
 
+# Export WANDB_API_KEY from .env for non-interactive login
+if [ -f .env ]; then
+    export WANDB_API_KEY=$(grep '^WANDB_API_KEY' .env | cut -d= -f2)
+fi
+
 wandb login
 
 python3 train.py \
