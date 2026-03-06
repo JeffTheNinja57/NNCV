@@ -4,7 +4,6 @@
 # Favours shallower, narrower architectures with good accuracy.
 
 wandb login
-
 python3 train.py \
     --data-dir ./data/cityscapes \
     --batch-size 64 \
@@ -16,10 +15,10 @@ python3 train.py \
     --mode efficiency \
     --pso-iterations 10 \
     --pso-population 20 \
-    --pso-epochs 20 \
+    --pso-epochs 1 \
     --cg 0.5 \
     --lambda-efficiency 0.3 \
     --max-params 5000000 \
     --max-depth 4 \
     --max-channels 256 \
-    --full-training-epochs 100
+    --full-training-epochs 100\
