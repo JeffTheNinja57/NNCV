@@ -1,10 +1,10 @@
 #!/bin/bash
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
-#SBATCH --cpus-per-task=72
+#SBATCH --cpus-per-task=10
 #SBATCH --gpus=4
 #SBATCH --partition=gpu_a100
-#SBATCH --time=12:00:00
+#SBATCH --time=24:00:00
 #SBATCH --job-name=pso-unet-eff
 #SBATCH --output=slurm-pso-efficiency-%j.out
 #SBATCH --exclusive
