@@ -14,9 +14,9 @@ python3 train.py \
     --seed 42 \
     --experiment-id "pso-unet-efficiency" \
     --mode efficiency \
-    --pso-iterations 2 \
-    --pso-population 2 \
-    --pso-epochs 1 \
+    --pso-iterations 10 \
+    --pso-population 20 \
+    --pso-epochs 20 \
     --cg 0.5 \
     --lambda-efficiency 0.3 \
     --max-params 5000000 \

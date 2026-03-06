@@ -14,7 +14,7 @@ python3 train.py \
     --experiment-id "pso-unet-performance" \
     --mode performance \
     --pso-iterations 10 \
-    --pso-population 10 \
+    --pso-population 20 \
     --pso-epochs 20 \
     --cg 0.5 \
     --max-depth 5 \
