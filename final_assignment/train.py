@@ -108,6 +108,9 @@ def get_args_parser():
     parser.add_argument("--full-training-epochs", type=int, default=None,
                         help="Epochs for final gBest training "
                              "(defaults to --epochs)")
+    parser.add_argument("--pso-batch-size", type=int, default=8,
+                        help="Batch size during PSO particle evaluation "
+                             "(smaller than --batch-size to fit large architectures)")
 
     return parser
 
@@ -161,6 +164,17 @@ def main(args):
         transform=img_transform, target_transform=target_transform,
     )
 
+    # DataLoaders for PSO evaluation (smaller batch to fit large architectures)
+    pso_train_dataloader = DataLoader(
+        train_dataset, batch_size=args.pso_batch_size,
+        shuffle=True, num_workers=args.num_workers,
+    )
+    pso_valid_dataloader = DataLoader(
+        valid_dataset, batch_size=args.pso_batch_size,
+        shuffle=False, num_workers=args.num_workers,
+    )
+
+    # DataLoaders for full training (original batch size)
     train_dataloader = DataLoader(
         train_dataset, batch_size=args.batch_size,
         shuffle=True, num_workers=args.num_workers,
@@ -190,7 +204,7 @@ def main(args):
         max_params=args.max_params,
     )
 
-    best_arch = pso.search(train_dataloader, valid_dataloader, device)
+    best_arch = pso.search(pso_train_dataloader, pso_valid_dataloader, device)
 
     # Log PSO results to wandb
     wandb.log({
