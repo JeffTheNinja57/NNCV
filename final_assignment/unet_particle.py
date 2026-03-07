@@ -21,6 +21,7 @@ iterations but recomputed each time from the current pBest and gBest.
 from __future__ import annotations
 
 import copy
+import gc
 from typing import Dict, List, Optional
 
 import numpy as np
@@ -188,6 +189,12 @@ class UNetParticle:
                 loss.backward()
                 optimizer.step()
 
+        # Free training-loop GPU tensors before evaluation — Python keeps
+        # loop variables alive in function scope, so they would still be
+        # live when empty_cache() is called at the end if not deleted here.
+        del images, labels, outputs, loss
+        torch.cuda.empty_cache()
+
         # --- Evaluation ---
         if mode == "performance":
             val_loss = self._compute_val_loss(model, val_loader, device,
@@ -203,8 +210,10 @@ class UNetParticle:
 
         self.fitness = fitness
 
-        # Free GPU memory — model is rebuilt when needed
-        del model, optimizer
+        # Free all GPU objects; gc.collect() breaks any reference cycles
+        # before releasing cached memory back to CUDA.
+        del model, optimizer, criterion
+        gc.collect()
         torch.cuda.empty_cache()
 
         return fitness
