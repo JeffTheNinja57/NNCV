@@ -21,4 +21,5 @@ python3 train.py \
     --max-params 5000000 \
     --max-depth 4 \
     --max-channels 256 \
-    --full-training-epochs 100\
+    --pso-batch-size 8 \
+    --full-training-epochs 100
