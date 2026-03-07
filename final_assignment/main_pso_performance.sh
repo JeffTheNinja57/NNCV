@@ -19,4 +19,5 @@ python3 train.py \
     --cg 0.5 \
     --max-depth 5 \
     --max-channels 1024 \
+    --pso-batch-size 8 \
     --full-training-epochs 100
