@@ -121,9 +121,19 @@ class Attention(nn.Module):
         B, N, C = x.shape
         qkv = self.qkv(x).reshape(B, N, 3, self.num_heads, C // self.num_heads).permute(2, 0, 3, 1, 4)
 
-        #TODO: complete the forward pass
-        # q, k, v = 
-        
+        # Extract query, key, value from the combined qkv tensor
+        q, k, v = qkv[0], qkv[1], qkv[2]
+
+        # Compute attention scores: dot product of q and k, scaled
+        attn = (q @ k.transpose(-2, -1)) * self.scale
+        attn = attn.softmax(dim=-1)
+        attn = self.attn_drop(attn)
+
+        # Apply attention to values, reshape back, and project
+        x = (attn @ v).transpose(1, 2).reshape(B, N, C)
+        x = self.proj(x)
+        x = self.proj_drop(x)
+
         return x, attn
 
 
@@ -203,8 +213,8 @@ class PatchEmbed(nn.Module):
     def forward(self, x):
         B, C, H, W = x.shape
         
-        # TODO: Complete the forward pass
-        # x =
+        # Project patches and flatten spatial dims into a sequence
+        x = self.proj(x).flatten(2).transpose(1, 2)
 
         return x
 
