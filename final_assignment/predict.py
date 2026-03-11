@@ -64,7 +64,7 @@ def postprocess(pred: torch.Tensor, original_shape: tuple) -> np.ndarray:
 
 
 def main():
-    device = "cuda" if torch.cuda.is_available() else "cpu"
+    device = "mps" if torch.mps.is_available() else "cpu"
 
     # Load model
     model = Model()

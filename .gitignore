@@ -179,12 +179,10 @@ cython_debug/
 
 *.env
 
-weekly_notebooks/data
-
 # Weights & Biases run logs
 wandb/
 
-/data
+*/data
 
 
 
