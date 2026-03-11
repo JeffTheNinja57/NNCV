@@ -82,7 +82,7 @@ class Attention(nn.Module):
     def forward(self, x):
         B, N, C = x.shape
         qkv = self.qkv(x).reshape(B, N, 3, self.num_heads, C // self.num_heads)
-        qkv = qkv.permute(2, 0, 3, 1, 4)
+        qkv = qkv.permute(2, 0, 3, 1, 4).contiguous()
 
         q, k, v = qkv[0], qkv[1], qkv[2]
 
@@ -90,7 +90,7 @@ class Attention(nn.Module):
         attn = attn.softmax(dim=-1)
         attn = self.attn_drop(attn)
 
-        x = (attn @ v).transpose(1, 2).reshape(B, N, C)
+        x = (attn @ v).transpose(1, 2).contiguous().reshape(B, N, C)
         x = self.proj(x)
         x = self.proj_drop(x)
         return x, attn
@@ -135,7 +135,7 @@ class PatchEmbed(nn.Module):
         self.proj = nn.Conv2d(in_chans, embed_dim, kernel_size=patch_size, stride=patch_size)
 
     def forward(self, x):
-        x = self.proj(x).flatten(2).transpose(1, 2)
+        x = self.proj(x).flatten(2).transpose(1, 2).contiguous()
         return x
 
 
@@ -203,7 +203,7 @@ class VisionTransformer(nn.Module):
             mode='bicubic',
         )
         assert int(w0) == patch_pos_embed.shape[-2] and int(h0) == patch_pos_embed.shape[-1]
-        patch_pos_embed = patch_pos_embed.permute(0, 2, 3, 1).view(1, -1, dim)
+        patch_pos_embed = patch_pos_embed.permute(0, 2, 3, 1).contiguous().reshape(1, -1, dim)
         return torch.cat((class_pos_embed.unsqueeze(0), patch_pos_embed), dim=1)
 
     def prepare_tokens(self, x):
@@ -286,7 +286,7 @@ class Model(nn.Module):
         # Reshape flat patch sequence into a 2D spatial feature map
         h = H // self.patch_size
         w = W // self.patch_size
-        feature_map = patch_tokens.transpose(1, 2).reshape(B, -1, h, w)
+        feature_map = patch_tokens.transpose(1, 2).contiguous().reshape(B, -1, h, w)
         # feature_map shape: (B, embed_dim, h, w)
 
         # Decode into per-pixel class logits
