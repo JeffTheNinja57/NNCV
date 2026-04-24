@@ -187,3 +187,10 @@ wandb/
 data/
 *.sif
 *.out
+
+.DS_Store
+Final assignment/
+nncv_report/
+nncv_submission*.tar
+*.pt
+checkpoints/
