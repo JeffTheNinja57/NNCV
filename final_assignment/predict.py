@@ -67,15 +67,18 @@ def main():
     device = "cuda" if torch.cuda.is_available() else "cpu"
 
     # Load model
-    model = Model()
+    arch = {'depth': 1, 'channels': [48, 48]}
+    model = Model(in_channels=3, n_classes=19, arch=arch)
     state_dict = torch.load(
-        MODEL_PATH, 
+        MODEL_PATH,
         map_location=device,
         weights_only=True,
     )
+    if any(k.startswith('module.') for k in state_dict):
+        state_dict = {k[len('module.'):]: v for k, v in state_dict.items()}
     model.load_state_dict(
-        state_dict, 
-        strict=True,  # Ensure the state dict matches the model architecture
+        state_dict,
+        strict=True,
     )
     model.eval().to(device)
 
