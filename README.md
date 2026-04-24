@@ -1,45 +1,70 @@
-# 5LSM0: Neural Networks for Computer Vision
+# 5LSM0 Final Assignment — Baseline U-Net
 
-Welcome to the repository for **5LSM0: Neural Networks for Computer Vision**, a course offered by the Department of Electrical Engineering at Eindhoven University of Technology. This course is hosted by the [Architectures for Relaible Image Analysis Lab](https://github.com/TUE-ARIA).
+This branch contains the **baseline submission**: the canonical depth-4
+Ronneberger U-Net provided by the 5LSM0 course staff, trained end-to-end on
+Cityscapes (19 classes) and packaged for the CodaLab challenge server.
 
-## Overview
+For the Particle Swarm Optimisation (PSO) architecture-search submission, see
+the [`pso`](https://github.com/JeffTheNinja57/NNCV/tree/pso) branch.
 
-This repository contains all the assignments and supplementary materials for the course. The weekly assignments are designed as **Jupyter Notebooks**, providing practical, hands-on experience with the concepts discussed during lectures. These notebooks will help you gain familiarity with implementing neural networks using **PyTorch** in **Python**. For the final assignment, you will apply the knowledge gained throughout the course by coding in native Python and working with a compute cluster, providing valuable experience in real-world computational environments.
+## What this branch does
 
-### Weekly Assignments
+- Trains the baseline U-Net (`depth=4`, channels `[64,128,256,512,512]`,
+  ~17.3 M parameters) on Cityscapes at 256×256 resolution.
+- Logs training curves and qualitative segmentations to Weights & Biases.
+- Saves the best-validation-loss checkpoint to `checkpoints/<experiment-id>/`.
+- Provides a Docker recipe + scripts for submitting the trained model to the
+  course CodaLab leaderboard.
 
-The weekly assignments are structured to guide you through foundational and advanced topics in neural networks for computer vision. These assignments are:
-- **Optional**: They are not mandatory but serve as valuable practice to build your coding skills.
-- **Hands-On**: Focused on applying theoretical knowledge from the lectures into real-world implementations.
+## Repository layout
 
-### Final Assignment
+```
+final_assignment/
+├── train.py                  # baseline training loop (this is the entry point)
+├── model.py                  # U-Net definition (uses DEFAULT_ARCH)
+├── predict.py                # inference wrapper used by the CodaLab container
+├── main.sh                   # invokes train.py with the reported hyperparameters
+├── jobscript_slurm.sh        # SLURM submission for the TU/e cluster
+├── Dockerfile                # CodaLab submission image
+├── download_docker_and_data.sh
+└── readmes/                  # course-provided installation / submission notes
+```
 
-The **final assignment** is the cornerstone of this course and accounts for **50% of your final grade**. In this project, you will:
-1. Work on a real-world problem using the **CityScapes dataset**.
-2. Train neural networks and validate their performance against established baselines.
-3. Document your results and insights in a detailed report.
+## Quick start
 
-This final assignment requires a deeper dive into the subject, pushing you to apply the knowledge and skills gained throughout the course.
+1. **Install** — follow [`final_assignment/readmes/README-Installation.md`](final_assignment/readmes/README-Installation.md).
+2. **Get the data** — `bash final_assignment/download_docker_and_data.sh`
+   (requires `HF_TOKEN` in `.env`).
+3. **Login to wandb** — `wandb login` (or export `WANDB_API_KEY` in `.env`).
+4. **Train locally** — from `final_assignment/`:
+   ```bash
+   bash main.sh
+   ```
+   Or on the TU/e SLURM cluster:
+   ```bash
+   sbatch jobscript_slurm.sh
+   ```
+5. **Submit to CodaLab** — see [`final_assignment/readmes/README-Submission.md`](final_assignment/readmes/README-Submission.md).
 
-The final assignment will start in week 3 (February 24th), once all core lectures have been completed, ensuring you have the necessary foundation to work on the project.
+## Reproducing the reported numbers
 
-## Authors and Contact
+The baseline run reported in the paper used:
 
-This course material is developed and maintained by the following contributors:  
+| Hyperparameter   | Value           |
+|------------------|-----------------|
+| Optimiser        | AdamW, lr=1e-3  |
+| Batch size       | 64              |
+| Resolution       | 256×256         |
+| Epochs           | 100 (planned)   |
+| Loss             | CrossEntropy, ignore_index=255 |
+| Seed             | 42              |
 
-- **Cris H.B. Claessens**  
-  Email: [c.h.b.claessens@tue.nl](mailto:c.h.b.claessens@tue.nl)  
+Best validation loss: **0.4363** at epoch 38.
+Test set (CodaLab Peak leaderboard): **0.4105 mDice / 0.3340 mIoU**.
 
-- **Tim J.M. Jaspers**  
-  Email: [t.j.m.jaspers@tue.nl](mailto:t.j.m.jaspers@tue.nl)
+## See also
 
-- **Francisco De Espírito Santo e Caetano**  
-  Email: [f.t.de.espirito.santo.e.caetano@tue.nl](mailto:f.t.de.espirito.santo.e.caetano@tue.nl)
-
-- **Lemar Abdi**  
-  Email: [l.abdi@tue.nl](mailto:l.abdi@tue.nl)
-
-- **dr. Christiaan G.A. Viviers**  
-  Email: [c.g.a.vivers@tue.nl](mailto:c.g.a.vivers@tue.nl)
-
-If you have questions or need assistance, you can always reach out to us via email. However, we strongly encourage you to post your questions in the **Discussions** section of this GitHub repository. This way, other students can benefit from the conversations and contribute by helping each other out.
+- [`final_assignment/readmes/README-Installation.md`](final_assignment/readmes/README-Installation.md) — environment setup
+- [`final_assignment/readmes/README-Slurm.md`](final_assignment/readmes/README-Slurm.md) — running on the cluster
+- [`final_assignment/readmes/README-Submission.md`](final_assignment/readmes/README-Submission.md) — building the Docker image and submitting to CodaLab
+- [`final_assignment/readmes/README-Report.md`](final_assignment/readmes/README-Report.md) — paper requirements
