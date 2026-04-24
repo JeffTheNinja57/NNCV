@@ -1,19 +1,8 @@
-"""
-Training script for a PSO-optimised PyTorch U-Net on Cityscapes.
+"""Baseline U-Net training on Cityscapes (5LSM0 final assignment).
 
-Execution flow:
-1. Parse arguments (including PSO and benchmark-mode settings).
-2. Set up data loaders and wandb.
-3. Run the PSO architecture search (``PSOUNet.search``) to find the
-   best U-Net configuration.
-4. Log the found architecture and fitness history to wandb.
-5. Fully train the best architecture using the existing training loop
-   (AdamW, CrossEntropyLoss, checkpoint saving — all unchanged).
-
-Two benchmark modes are supported via ``--mode``:
-- **performance** — maximise segmentation accuracy (fitness = −val_loss).
-- **efficiency** — best accuracy at lowest parameter count
-  (fitness = val_mIoU − λ·n_params/max_params).
+Trains the canonical depth-4 Ronneberger U-Net (provided by the course staff)
+with AdamW + CrossEntropyLoss, logging to Weights & Biases and saving the
+best-validation checkpoint.
 """
 import os
 from argparse import ArgumentParser
@@ -36,10 +25,10 @@ from torchvision.transforms.v2 import (
 )
 
 from model import Model
-from pso_unet import PSOUNet
 
 
-# ---- Cityscapes label remapping (unchanged) --------------------------------
+# Cityscapes ships 34 raw label IDs but only 19 are evaluated; remap so that
+# unused IDs collapse to 255 (ignored by the loss).
 id_to_trainid = {cls.id: cls.train_id for cls in Cityscapes.classes}
 
 
@@ -47,6 +36,7 @@ def convert_to_train_id(label_img: torch.Tensor) -> torch.Tensor:
     return label_img.apply_(lambda x: id_to_trainid[x])
 
 
+# Per-class colours for qualitative wandb visualisations.
 train_id_to_color = {
     cls.train_id: cls.color for cls in Cityscapes.classes if cls.train_id != 255
 }
@@ -63,90 +53,49 @@ def convert_train_id_to_color(prediction: torch.Tensor) -> torch.Tensor:
     return color_image
 
 
-# ---- Argument parser -------------------------------------------------------
 def get_args_parser():
-    parser = ArgumentParser(
-        "Training script for a PSO-optimised PyTorch U-Net model"
-    )
-
-    # Existing arguments (unchanged defaults)
+    parser = ArgumentParser("Baseline U-Net training on Cityscapes")
     parser.add_argument("--data-dir", type=str, default="./data/cityscapes",
-                        help="Path to the training data")
-    parser.add_argument("--batch-size", type=int, default=64,
-                        help="Training batch size")
-    parser.add_argument("--epochs", type=int, default=10,
-                        help="Number of training epochs (full training)")
-    parser.add_argument("--lr", type=float, default=0.001,
-                        help="Learning rate")
-    parser.add_argument("--num-workers", type=int, default=10,
-                        help="Number of workers for data loaders")
-    parser.add_argument("--seed", type=int, default=42,
-                        help="Random seed for reproducibility")
-    parser.add_argument("--experiment-id", type=str, default="pso-unet",
-                        help="Experiment ID for Weights & Biases")
-
-    # ---- PSO / benchmark-mode arguments -----------------------------------
-    parser.add_argument("--mode", type=str, required=True,
-                        choices=["efficiency", "performance"],
-                        help="Benchmark mode: 'efficiency' or 'performance'")
-    parser.add_argument("--pso-iterations", type=int, default=10,
-                        help="Number of PSO iterations")
-    parser.add_argument("--pso-population", type=int, default=5,
-                        help="PSO swarm size")
-    parser.add_argument("--pso-epochs", type=int, default=2,
-                        help="Short training epochs per particle evaluation")
-    parser.add_argument("--cg", type=float, default=0.5,
-                        help="PSO global best pull weight (Cg)")
-    parser.add_argument("--lambda-efficiency", type=float, default=0.3,
-                        help="Parameter penalty weight (efficiency mode)")
-    parser.add_argument("--max-params", type=int, default=5_000_000,
-                        help="Parameter count normaliser (efficiency mode)")
-    parser.add_argument("--max-depth", type=int, default=5,
-                        help="Max encoder depth PSO can explore")
-    parser.add_argument("--max-channels", type=int, default=512,
-                        help="Max channels at any encoder level")
-    parser.add_argument("--full-training-epochs", type=int, default=None,
-                        help="Epochs for final gBest training "
-                             "(defaults to --epochs)")
-    parser.add_argument("--pso-batch-size", type=int, default=8,
-                        help="Batch size during PSO particle evaluation "
-                             "(smaller than --batch-size to fit large architectures)")
-
+                        help="Path to the Cityscapes dataset root")
+    parser.add_argument("--batch-size", type=int, default=64)
+    parser.add_argument("--epochs", type=int, default=10)
+    parser.add_argument("--lr", type=float, default=0.001)
+    parser.add_argument("--num-workers", type=int, default=10)
+    parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument("--experiment-id", type=str, default="unet-training",
+                        help="Run name for Weights & Biases")
     return parser
 
 
-# ---- Main ------------------------------------------------------------------
 def main(args):
-    # Resolve full-training epochs
-    full_epochs = (args.full_training_epochs
-                   if args.full_training_epochs is not None
-                   else args.epochs)
-
-    # Initialize wandb
     wandb.init(
         project="5lsm0-cityscapes-segmentation",
         name=args.experiment_id,
         config=vars(args),
     )
 
-    # Output directory
     output_dir = os.path.join("checkpoints", args.experiment_id)
     os.makedirs(output_dir, exist_ok=True)
 
-    # Reproducibility
+    # Deterministic seeds so re-runs of the baseline are comparable.
     torch.manual_seed(args.seed)
     np.random.seed(args.seed)
     torch.backends.cudnn.deterministic = True
 
-    device = torch.device("cuda" if torch.cuda.is_available() else "mps" if torch.mps.is_available() else "cpu")
+    device = torch.device(
+        "cuda" if torch.cuda.is_available()
+        else "mps" if torch.backends.mps.is_available()
+        else "cpu"
+    )
 
-    # ---- Data loaders -------------------------------------------------
+    # 256x256 keeps memory low enough for batch_size=64 on a single A100.
     img_transform = Compose([
         ToImage(),
         Resize((256, 256)),
         ToDtype(torch.float32, scale=True),
         Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
     ])
+    # NEAREST interpolation — bilinear would invent non-existent class IDs.
     target_transform = Compose([
         ToImage(),
         Resize((256, 256), interpolation=InterpolationMode.NEAREST),
@@ -164,17 +113,6 @@ def main(args):
         transform=img_transform, target_transform=target_transform,
     )
 
-    # DataLoaders for PSO evaluation (smaller batch to fit large architectures)
-    pso_train_dataloader = DataLoader(
-        train_dataset, batch_size=args.pso_batch_size,
-        shuffle=True, num_workers=args.num_workers,
-    )
-    pso_valid_dataloader = DataLoader(
-        valid_dataset, batch_size=args.pso_batch_size,
-        shuffle=False, num_workers=args.num_workers,
-    )
-
-    # DataLoaders for full training (original batch size)
     train_dataloader = DataLoader(
         train_dataset, batch_size=args.batch_size,
         shuffle=True, num_workers=args.num_workers,
@@ -184,71 +122,29 @@ def main(args):
         shuffle=False, num_workers=args.num_workers,
     )
 
-    # ====================================================================
-    # Phase 1: PSO Architecture Search
-    # ====================================================================
-    pso = PSOUNet(
-        pop_size=args.pso_population,
-        n_iter=args.pso_iterations,
-        pso_epochs=args.pso_epochs,
-        lr=args.lr,
-        min_depth=1,
-        max_depth=args.max_depth,
-        min_channels=16,
-        max_channels=args.max_channels,
-        in_channels=3,
-        n_classes=19,
-        mode=args.mode,
-        Cg=args.cg,
-        lambda_=args.lambda_efficiency,
-        max_params=args.max_params,
-    )
-
-    best_arch = pso.search(pso_train_dataloader, pso_valid_dataloader, device)
-
-    # Log PSO results to wandb
-    wandb.log({
-        "pso/gBest_arch": str(best_arch),
-        "pso/gBest_depth": best_arch["depth"],
-        "pso/gBest_channels": best_arch["channels"],
-        "pso/gBest_fitness": pso.gBest_fitness,
-    })
-    # Log fitness history as a wandb table
-    for step, fitness in enumerate(pso.get_fitness_history()):
-        wandb.log({"pso/fitness_history": fitness, "pso_step": step})
-
-    # ====================================================================
-    # Phase 2: Full Training of gBest Architecture
-    # ====================================================================
-    print(f"\nFull training of gBest architecture for {full_epochs} epochs...")
-    print(f"Architecture: {best_arch}")
-
-    model = Model(
-        in_channels=3,
-        n_classes=19,
-        arch=best_arch,
-    ).to(device)
+    # Model() with no args uses DEFAULT_ARCH (depth=4, [64,128,256,512,512]) —
+    # the canonical course-provided baseline; predict.py / CodaLab rely on it.
+    model = Model().to(device)
 
     if torch.cuda.device_count() > 1:
         print(f"Using {torch.cuda.device_count()} GPUs via DataParallel")
-        model = nn.DataParallel(model)
-    model = model.to(device)
+        model = nn.DataParallel(model).to(device)
 
     n_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
     print(f"Trainable parameters: {n_params:,}")
     wandb.log({"model/n_params": n_params})
 
+    # ignore_index=255 skips the unlabelled / void pixels produced by the
+    # train-id remapping above.
     criterion = nn.CrossEntropyLoss(ignore_index=255)
     optimizer = AdamW(model.parameters(), lr=args.lr)
 
-    # ---- Training loop (unchanged internals) ------------------------------
-    best_valid_loss = float('inf')
+    best_valid_loss = float("inf")
     current_best_model_path = None
 
-    for epoch in range(full_epochs):
-        print(f"Epoch {epoch + 1:04}/{full_epochs:04}")
+    for epoch in range(args.epochs):
+        print(f"Epoch {epoch + 1:04}/{args.epochs:04}")
 
-        # Training
         model.train()
         for i, (images, labels) in enumerate(train_dataloader):
             labels = convert_to_train_id(labels)
@@ -263,11 +159,10 @@ def main(args):
 
             wandb.log({
                 "train_loss": loss.item(),
-                "learning_rate": optimizer.param_groups[0]['lr'],
+                "learning_rate": optimizer.param_groups[0]["lr"],
                 "epoch": epoch + 1,
             }, step=epoch * len(train_dataloader) + i)
 
-        # Validation
         model.eval()
         with torch.no_grad():
             losses = []
@@ -280,9 +175,9 @@ def main(args):
                 loss = criterion(outputs, labels)
                 losses.append(loss.item())
 
+                # Log a single batch of qualitative predictions per epoch.
                 if i == 0:
-                    predictions = outputs.softmax(1).argmax(1)
-                    predictions = predictions.unsqueeze(1)
+                    predictions = outputs.softmax(1).argmax(1).unsqueeze(1)
                     labels_vis = labels.unsqueeze(1)
 
                     predictions = convert_train_id_to_color(predictions)
@@ -301,10 +196,10 @@ def main(args):
                     }, step=(epoch + 1) * len(train_dataloader) - 1)
 
             valid_loss = sum(losses) / len(losses)
-            wandb.log({
-                "valid_loss": valid_loss,
-            }, step=(epoch + 1) * len(train_dataloader) - 1)
+            wandb.log({"valid_loss": valid_loss},
+                      step=(epoch + 1) * len(train_dataloader) - 1)
 
+            # Keep only the single best checkpoint to bound disk usage.
             if valid_loss < best_valid_loss:
                 best_valid_loss = valid_loss
                 if current_best_model_path:
@@ -317,7 +212,6 @@ def main(args):
 
     print("Training complete!")
 
-    # Save final model
     torch.save(
         model.state_dict(),
         os.path.join(
