@@ -149,6 +149,11 @@ To reproduce: run `main_pso_efficiency.sh` followed by
 
 ---
 
+## Submission contact
+
+- **CodaLab username:** `JeffTheNinja57`
+- **TU/e email:** m.angheluta@student.tue.nl
+
 ## See also
 
 - [`final_assignment/readmes/README-Installation.md`](final_assignment/readmes/README-Installation.md) — environment setup
