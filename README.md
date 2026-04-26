@@ -62,6 +62,11 @@ The baseline run reported in the paper used:
 Best validation loss: **0.4363** at epoch 38.
 Test set (CodaLab Peak leaderboard): **0.4105 mDice / 0.3340 mIoU**.
 
+## Submission contact
+
+- **CodaLab username:** `JeffTheNinja57`
+- **TU/e email:** m.angheluta@student.tue.nl
+
 ## See also
 
 - [`final_assignment/readmes/README-Installation.md`](final_assignment/readmes/README-Installation.md) — environment setup
